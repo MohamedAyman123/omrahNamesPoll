@@ -1,47 +1,47 @@
-import React, { useState, useEffect } from 'react';
-import SetupView from './components/SetupView';
-import LotteryView from './components/LotteryView';
-import { defaultNames } from "./data/defaultNames";
+import React, { useState, useEffect } from "react";
+import SetupView from "./components/SetupView";
+import LotteryView from "./components/LotteryView";
+import { defaultNames } from "./data/defaultNames"; // ✅ الأسماء الافتراضية
 
 export enum AppView {
-  SETUP = 'SETUP',
-  LOTTERY = 'LOTTERY'
+  SETUP = "SETUP",
+  LOTTERY = "LOTTERY",
 }
 
 export interface Participant {
   name: string;
-  center?: string; // أصبح اختياري (لم نعد نستخدمه في القرعة)
+  center: string;
 }
 
-const STORAGE_KEY = 'thawab_lottery_participants';
+const STORAGE_KEY = "thawab_names_lottery_participants";
 
 const App: React.FC = () => {
   const [view, setView] = useState<AppView>(AppView.SETUP);
   const [participants, setParticipants] = useState<Participant[]>([]);
 
-  // تحميل البيانات المحفوظة
+  // ✅ تحميل الأسماء (إما من LocalStorage أو من defaultNames)
   useEffect(() => {
-  const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(STORAGE_KEY);
 
-  // ✅ إذا يوجد بيانات محفوظة استخدمها
-  if (saved) {
-    try {
-      setParticipants(JSON.parse(saved));
-      return;
-    } catch (e) {
-      console.error("Error loading participants:", e);
+    // 1) إذا يوجد بيانات محفوظة استخدمها
+    if (saved) {
+      try {
+        setParticipants(JSON.parse(saved));
+        return;
+      } catch (e) {
+        console.error("Error loading data from localStorage:", e);
+      }
     }
-  }
 
-  // ✅ إذا لا يوجد بيانات: حمّل الأسماء الافتراضية
-  const initial = defaultNames.map((name) => ({
-    name,
-    center: "" // لو أنت مازلت تستخدم Participant فيه center
-  }));
+    // 2) إذا لا يوجد بيانات محفوظة -> استخدم defaultNames
+    const initial: Participant[] = defaultNames.map((name) => ({
+      name,
+      center: "", // ✅ لا نستخدم المركز الآن، لكن نتركه حتى لا يحدث خطأ TypeScript
+    }));
 
-  setParticipants(initial);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-}, []);
+    setParticipants(initial);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+  }, []);
 
   const handleStartLottery = (newParticipants: Participant[]) => {
     setParticipants(newParticipants);
@@ -49,11 +49,16 @@ const App: React.FC = () => {
     setView(AppView.LOTTERY);
   };
 
-  // ✅ حذف الفائز نفسه فقط (بدون حذف المركز بالكامل)
+  // ✅ حذف الفائز (اسم واحد فقط)
   const handleRemoveWinner = (winner: Participant) => {
-    const updated = participants.filter((p, idx) => {
-      // حذف أول تطابق للاسم فقط (لتجنب حذف أشخاص بنفس الاسم إذا تكرر)
-      return !(p.name === winner.name && idx === participants.findIndex(x => x.name === winner.name));
+    let removed = false;
+
+    const updated = participants.filter((p) => {
+      if (!removed && p.name === winner.name) {
+        removed = true;
+        return false;
+      }
+      return true;
     });
 
     setParticipants(updated);
@@ -67,7 +72,10 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-transparent flex items-center justify-center p-4">
       {view === AppView.SETUP ? (
-        <SetupView onStart={handleStartLottery} initialParticipants={participants} />
+        <SetupView
+          onStart={handleStartLottery}
+          initialParticipants={participants}
+        />
       ) : (
         <LotteryView
           participants={participants}
